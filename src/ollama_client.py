@@ -25,6 +25,12 @@ def generate_grounded_answer(
     timeout: float = 120.0,
 ) -> str:
     """Ask Ollama to answer only from supplied snippets and cite [S#] labels."""
+    if not question.strip():
+        raise ValueError("Question must not be empty")
+    if timeout <= 0:
+        raise ValueError("timeout must be positive")
+    if not sources:
+        raise ValueError("At least one retrieved source is required")
     model = model or os.getenv("DOCQUERY_OLLAMA_MODEL", DEFAULT_OLLAMA_MODEL)
     base_url = (base_url or os.getenv("DOCQUERY_OLLAMA_URL", DEFAULT_OLLAMA_URL)).rstrip("/")
     context_parts = []
@@ -63,7 +69,12 @@ def generate_grounded_answer(
         ) from exc
     except (json.JSONDecodeError, UnicodeDecodeError) as exc:
         raise OllamaError("Ollama returned invalid JSON") from exc
-    message = result.get("message", {}).get("content")
+    if not isinstance(result, dict):
+        raise OllamaError("Ollama returned an invalid response object")
+    message_object = result.get("message")
+    if not isinstance(message_object, dict):
+        raise OllamaError("Ollama response did not contain a message object")
+    message = message_object.get("content")
     if not isinstance(message, str) or not message.strip():
         raise OllamaError("Ollama returned an empty answer")
     return message.strip()

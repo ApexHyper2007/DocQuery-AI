@@ -64,6 +64,10 @@ class BM25Index:
         return result
 
     def search(self, query: str, k: int = 8) -> list[dict[str, Any]]:
+        if not query.strip():
+            raise ValueError("Query must not be empty")
+        if k < 1:
+            raise ValueError("k must be positive")
         scores = self.scores(query)
         ranked = sorted(range(len(scores)), key=lambda idx: (-scores[idx], idx))
         return [
@@ -101,7 +105,27 @@ def reciprocal_rank_fusion(
 
 
 def _read_chunks(path: Path) -> list[dict[str, Any]]:
-    chunks = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    chunks = []
+    seen_ids: set[str] = set()
+    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        if not line.strip():
+            continue
+        try:
+            chunk = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Invalid JSON on line {line_number} of {path}") from exc
+        if not isinstance(chunk, dict):
+            raise ValueError(f"Chunk on line {line_number} must be a JSON object")
+        chunk_id = chunk.get("chunk_id")
+        content = chunk.get("content")
+        if not isinstance(chunk_id, str) or not chunk_id:
+            raise ValueError(f"Chunk on line {line_number} is missing a valid chunk_id")
+        if chunk_id in seen_ids:
+            raise ValueError(f"Duplicate chunk_id {chunk_id!r} in {path}")
+        if not isinstance(content, str) or not content.strip():
+            raise ValueError(f"Chunk {chunk_id!r} is missing non-empty string content")
+        seen_ids.add(chunk_id)
+        chunks.append(chunk)
     if not chunks:
         raise ValueError(f"No chunks found at {path}; run src/process_docs.py")
     for chunk in chunks:
@@ -140,6 +164,15 @@ class HybridRetriever:
             dense_encoder = dense_encoder or SentenceTransformer(model_name, device=device, cache_folder=str(cache_dir))
         self.collection = collection
         self.encoder = dense_encoder
+        metadata = getattr(collection, "metadata", None) or {}
+        indexed_model = metadata.get("embedding_model")
+        if indexed_model and indexed_model != model_name:
+            raise ValueError(
+                f"Chroma collection uses embedding model {indexed_model!r}, but retrieval requested {model_name!r}"
+            )
+        distance_metric = metadata.get("hnsw:space")
+        if distance_metric and distance_metric != "cosine":
+            raise ValueError(f"Chroma collection uses {distance_metric!r}; retrieval expects cosine distance")
         self.by_id = {chunk["chunk_id"]: chunk for chunk in self.chunks}
 
     def search(

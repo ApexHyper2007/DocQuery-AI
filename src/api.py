@@ -50,10 +50,15 @@ def create_app(retriever: Any | None = None) -> FastAPI:
 
     @app.post("/api/query", response_model=QueryResponse)
     def query(request: QueryRequest) -> dict[str, Any]:
+        question = request.question.strip()
+        if not question:
+            raise HTTPException(status_code=422, detail="question must contain non-whitespace text")
+        if request.top_k > request.candidate_k * 2:
+            raise HTTPException(status_code=422, detail="top_k cannot exceed 2 * candidate_k")
         active_retriever = app.state.retriever or get_retriever()
         try:
             return answer_question(
-                request.question, active_retriever,
+                question, active_retriever,
                 top_k=request.top_k, candidate_k=request.candidate_k,
                 rrf_k=int(os.getenv("DOCQUERY_RRF_K", "60")),
                 min_similarity=float(os.getenv("DOCQUERY_MIN_SIMILARITY", "0.20")),

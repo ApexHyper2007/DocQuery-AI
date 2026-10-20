@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any, Callable
 
 from src.ollama_client import generate_grounded_answer
@@ -20,6 +21,14 @@ def answer_question(
 ) -> dict[str, Any]:
     if not question.strip():
         raise ValueError("Question must not be empty")
+    if top_k < 1 or candidate_k < 1 or top_k > candidate_k * 2:
+        raise ValueError("top_k and candidate_k must be positive, with top_k no greater than 2 * candidate_k")
+    if rrf_k < 1:
+        raise ValueError("rrf_k must be positive")
+    if not 0 <= min_similarity <= 1:
+        raise ValueError("min_similarity must be between 0 and 1")
+    if min_bm25_score < 0:
+        raise ValueError("min_bm25_score must be non-negative")
     results = retriever.search(question, k=top_k, candidate_k=candidate_k, rrf_k=rrf_k)
     if not results:
         return {
@@ -33,15 +42,34 @@ def answer_question(
         return {
             "answer": "The indexed documentation does not provide enough relevant context to answer this question reliably.",
             "insufficient_context": True,
-            "sources": [_public_source(item) for item in results[:3]],
+            "sources": _labeled_sources(results[:3]),
         }
-    cited_sources = []
-    for number, item in enumerate(results, start=1):
+    cited_sources = _labeled_sources(results)
+    answer = generator(question, results)
+    if not isinstance(answer, str) or not answer.strip():
+        return {
+            "answer": "The answer model returned no usable text. Please try again.",
+            "insufficient_context": True,
+            "sources": cited_sources,
+        }
+    citations = set(re.findall(r"\[(S\d+)\]", answer))
+    allowed_citations = {f"S{number}" for number in range(1, len(results) + 1)}
+    if not citations or not citations.issubset(allowed_citations):
+        return {
+            "answer": "I couldn't validate the answer's source citations. Please retry or inspect the retrieved excerpts below.",
+            "insufficient_context": True,
+            "sources": cited_sources,
+        }
+    return {"answer": answer, "insufficient_context": False, "sources": cited_sources}
+
+
+def _labeled_sources(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    sources = []
+    for number, item in enumerate(items, start=1):
         public = _public_source(item)
         public["citation"] = f"S{number}"
-        cited_sources.append(public)
-    answer = generator(question, results)
-    return {"answer": answer, "insufficient_context": False, "sources": cited_sources}
+        sources.append(public)
+    return sources
 
 
 def _public_source(item: dict[str, Any]) -> dict[str, Any]:

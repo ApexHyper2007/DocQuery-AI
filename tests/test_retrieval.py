@@ -1,5 +1,5 @@
 from src.answering import answer_question
-from src.retrieval import BM25Index, reciprocal_rank_fusion, tokenize
+from src.retrieval import BM25Index, _read_chunks, reciprocal_rank_fusion, tokenize
 
 
 def sample_chunks():
@@ -17,6 +17,25 @@ def test_bm25_returns_matching_document_first():
     results = BM25Index(sample_chunks()).search("torch.Tensor.add alpha", k=2)
     assert results[0]["chunk_id"] == "tensor-add-0"
     assert results[0]["bm25_score"] > 0
+
+
+def test_bm25_rejects_zero_result_limit():
+    import pytest
+
+    with pytest.raises(ValueError, match="k must be positive"):
+        BM25Index(sample_chunks()).search("tensor", k=0)
+
+
+def test_chunk_loader_rejects_duplicate_ids(tmp_path):
+    import json
+    import pytest
+
+    chunk = sample_chunks()[0]
+    path = tmp_path / "chunks.jsonl"
+    path.write_text(json.dumps(chunk) + "\n" + json.dumps(chunk) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Duplicate chunk_id"):
+        _read_chunks(path)
 
 
 def test_reciprocal_rank_fusion_rewards_agreement():
@@ -58,3 +77,23 @@ def test_answering_attaches_citation_ids_and_preserves_source_url():
     )
     assert result["sources"][0]["citation"] == "S1"
     assert result["sources"][0]["source_url"].endswith("/api")
+
+
+def test_answering_rejects_missing_citations():
+    result = answer_question(
+        "How does this work?",
+        FakeRetriever([{"chunk_id": "x", "content": "Evidence", "dense_similarity": 0.8}]),
+        generator=lambda question, sources: "It works like this.",
+    )
+    assert result["insufficient_context"] is True
+    assert "couldn't validate" in result["answer"]
+
+
+def test_answering_rejects_unknown_citation_ids():
+    result = answer_question(
+        "How does this work?",
+        FakeRetriever([{"chunk_id": "x", "content": "Evidence", "dense_similarity": 0.8}]),
+        generator=lambda question, sources: "It works like this [S2].",
+    )
+    assert result["insufficient_context"] is True
+    assert result["sources"][0]["citation"] == "S1"

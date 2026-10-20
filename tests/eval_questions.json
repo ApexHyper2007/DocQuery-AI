@@ -1,0 +1,26 @@
+[
+  {
+    "question": "How do I add a tensor to another tensor with torch.Tensor.add?",
+    "relevant_sources": ["pytorch:tensor-add"]
+  },
+  {
+    "question": "How are PyTorch tensors created, shaped, and moved between devices?",
+    "relevant_sources": ["pytorch:tensor-guide"]
+  },
+  {
+    "question": "Which image transforms resize, crop, and normalize an image?",
+    "relevant_sources": ["torchvision:transforms"]
+  },
+  {
+    "question": "How can I load an image classification dataset using torchvision datasets?",
+    "relevant_sources": ["torchvision:datasets"]
+  },
+  {
+    "question": "What is the CUDA programming model for grids, blocks, and threads?",
+    "relevant_sources": ["cuda:programming-model"]
+  },
+  {
+    "question": "What are the main components of the CUDA platform?",
+    "relevant_sources": ["cuda:cuda-platform"]
+  }
+]

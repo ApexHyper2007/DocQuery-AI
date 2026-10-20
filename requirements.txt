@@ -1,0 +1,16 @@
+﻿# HTML cleaning and Markdown-aware chunking
+beautifulsoup4>=4.12,<5
+langchain-text-splitters>=0.3,<2
+
+# Text embeddings and persistent vector storage
+sentence-transformers>=3,<6
+chromadb>=0.5,<2
+
+# API and local chat UI
+fastapi>=0.115,<1
+uvicorn[standard]>=0.30,<1
+streamlit>=1.40,<2
+
+# Tests and retrieval evaluation
+pytest>=8,<9
+httpx>=0.27,<1

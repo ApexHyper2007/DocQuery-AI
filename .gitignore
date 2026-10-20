@@ -1,0 +1,58 @@
+﻿# Python bytecode and test/tool caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Local secrets and environment configuration
+.env
+.env.*
+!.env.example
+
+# Downloaded/processed documentation and generated retrieval artifacts
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+chroma/
+chroma_db/
+vectorstore/
+*.sqlite
+*.sqlite3
+*.db
+
+# Downloaded models and large generated artifacts
+models/
+model_cache/
+.cache/
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.onnx
+*.gguf
+
+# Editor and operating system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Common local credential files
+secrets/
+secrets.json
+credentials.json
+*.pem
+*.key
+
+data/index/

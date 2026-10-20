@@ -80,6 +80,17 @@ def _chroma_metadata(chunk: dict[str, Any]) -> dict[str, str | int | float | boo
     return metadata
 
 
+def remove_stale_ids(collection: Any, expected_ids: set[str], batch_size: int = 500) -> int:
+    """Delete records left behind after chunks are removed or renamed."""
+    if batch_size < 1:
+        raise ValueError("batch_size must be at least 1")
+    existing_ids = collection.get(include=[]).get("ids", [])
+    stale_ids = [chunk_id for chunk_id in existing_ids if chunk_id not in expected_ids]
+    for start in range(0, len(stale_ids), batch_size):
+        collection.delete(ids=stale_ids[start : start + batch_size])
+    return len(stale_ids)
+
+
 def build_index(
     input_path: Path = DEFAULT_INPUT,
     persist_dir: Path = DEFAULT_PERSIST_DIR,
@@ -162,6 +173,10 @@ def build_index(
         )
         batch_end = min(start + len(batch), len(chunks))
         print(f"Indexed chunks {start + 1}-{batch_end} of {len(chunks)}")
+
+    stale_count = remove_stale_ids(collection, {chunk["chunk_id"] for chunk in chunks})
+    if stale_count:
+        print(f"Removed {stale_count} stale chunk(s) from collection {collection_name!r}")
 
     input_hash = hashlib.sha256(input_path.read_bytes()).hexdigest()
     info = {

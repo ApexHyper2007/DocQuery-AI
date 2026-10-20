@@ -16,7 +16,7 @@ The BM25 implementation is deliberately small and visible in `src/retrieval.py`;
 
 ## Current status
 
-Stages 1-10 are implemented: ingestion and redirect validation, HTML cleaning, structure-aware chunking, embedding/indexing, BM25 and dense retrieval, reciprocal-rank fusion, Ollama answer generation, citations and insufficient-context handling, FastAPI, Streamlit, unit tests, and source-level retrieval evaluation. Stage 11 includes operating notes and local GitHub preparation; nothing is published by this repository setup.
+Stages 1-10 are implemented: ingestion and redirect validation, HTML cleaning, structure-aware chunking, embedding/indexing, BM25 and dense retrieval, reciprocal-rank fusion, Ollama answer generation, citation validation and insufficient-context handling, FastAPI, Streamlit, unit tests, and source-level retrieval evaluation. The project is published on GitHub; use focused commits for future changes.
 
 The current local corpus is built from six official documentation pages. The ignored local index contains 1,000 chunks. The evaluation examples are a small smoke benchmark, not a representative quality guarantee. Review retrievals and add labeled questions before tuning thresholds or claiming measured quality.
 
@@ -99,7 +99,7 @@ Run the labeled source-level evaluation after building the index and downloading
 python -m src.evaluate_retrieval --k 5
 ```
 
-The evaluator reports hit rate at k and mean reciprocal rank (MRR). Its six examples check whether the expected source page appears, not whether a passage fully answers the query. For meaningful engineering evaluation, expand the set, label relevant chunk IDs, measure Recall@k/MRR/NDCG, inspect failures, and compare changes using a fixed query set.
+The evaluator reports hit rate, source-level precision/recall at k, and mean reciprocal rank (MRR). Its six examples check whether the expected source page appears, not whether a passage fully answers the query. For meaningful engineering evaluation, expand the set, label relevant chunk IDs, measure chunk-level Recall@k/MRR/NDCG, inspect failures, and compare changes using a fixed query set.
 
 Quick API smoke checks:
 
@@ -126,4 +126,6 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/query `
 
 Raw downloads, processed chunks, the Chroma database, local virtual environment, model caches, and secrets are ignored by `.gitignore`. Query text and excerpts are sent to the local Ollama service on this machine; this code does not send them to a hosted model. Confirm local runtime configuration before indexing private sources.
 
-Before a future GitHub push, inspect `git status --short` and `git diff --check`, confirm generated data and `.env` are absent, and review license/attribution terms for any documentation content you choose to redistribute. This project has not been pushed.
+Before each GitHub push, inspect `git status --short` and `git diff --cached --check`, confirm generated data and `.env` are absent, and review license/attribution terms for any documentation content you choose to redistribute. The repository is [ApexHyper2007/DocQuery-AI](https://github.com/ApexHyper2007/DocQuery-AI).
+
+`.gitattributes` keeps source and documentation files on LF line endings in Git, including when developers work from Windows.

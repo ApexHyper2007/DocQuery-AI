@@ -2,7 +2,7 @@
 
 ## Outcome and scope
 
-DocQuery now has a local documentation-to-answer path: it downloads and validates six official documentation pages, cleans and chunks them, stores MiniLM embeddings in persistent Chroma, combines BM25 and dense retrieval, asks Ollama for a context-grounded answer, and exposes that workflow through FastAPI and Streamlit. The source tree includes tests and a small labeled retrieval benchmark. Nothing was pushed to GitHub.
+DocQuery now has a local documentation-to-answer path: it downloads and validates six official documentation pages, cleans and chunks them, stores MiniLM embeddings in persistent Chroma, combines BM25 and dense retrieval, asks Ollama for a context-grounded answer, and exposes that workflow through FastAPI and Streamlit. The source tree includes tests and a small labeled retrieval benchmark. The project is published at `https://github.com/ApexHyper2007/DocQuery-AI`.
 
 The existing local corpus/index from the earlier indexing stage remains in place. Its recorded index metadata reports 1,000 chunks and 384-dimensional embeddings. Generated documents, vector files, model cache, and the virtual environment remain ignored by Git.
 
@@ -67,7 +67,7 @@ rrf_score[chunk_id] += 1.0 / (rrf_k + rank)
 
 `src/ollama_client.py` calls Ollama's local `/api/chat` endpoint using Python's standard library. It sends only the retrieved excerpts and asks the configured model (default `llama3.2:3b`) to answer from those excerpts and cite `[S1]`, `[S2]`, etc. No extra Python Ollama client package is required. The model itself is managed separately by Ollama.
 
-**ML engineer concepts:** the prompt sets evidence constraints; temperature is low for factual answers; context-window budget constrains `top_k`; a small local model may still make mistakes. Citation formatting is instructed by the prompt and UI sources are attached independently, but model-generated prose must still be reviewed for factual support.
+**ML engineer concepts:** the prompt sets evidence constraints; temperature is low for factual answers; context-window budget constrains `top_k`; a small local model may still make mistakes. The answer layer now rejects output with missing or unknown `[S#]` references. Valid citation labels prove only that the answer points to a retrieved source; the prose still needs faithfulness evaluation.
 
 ### 7. Grounding, citations, and insufficient context
 
@@ -89,15 +89,17 @@ rrf_score[chunk_id] += 1.0 / (rrf_k + rank)
 
 ### 10. Tests and retrieval evaluation
 
-`tests/test_ingest_docs.py` covers redirect resolution and stub rejection. `tests/test_retrieval.py` covers API tokenization, BM25 ranking, RRF agreement, citation metadata, and weak-context refusal. `tests/test_api.py` covers health and query response shape without requiring Ollama. `tests/eval_questions.json` provides six manually labeled source-level questions, and `src/evaluate_retrieval.py` reports hit rate at k and MRR.
+`tests/test_ingest_docs.py` covers redirect resolution and stub rejection. Retrieval, index, and API tests cover tokenization, stale vector removal, duplicate chunk IDs, RRF agreement, citation validation, input checks, and weak-context refusal. `tests/eval_questions.json` provides six manually labeled source-level questions; `src/evaluate_retrieval.py` reports hit rate, source-level precision/recall at k, and MRR.
 
 **ML engineer concepts:** unit tests verify code invariants, while retrieval evaluation checks ranking on labeled queries. Source-level labels are only a smoke metric; a stronger benchmark labels relevant chunk IDs and tracks Recall@k, MRR, and NDCG, plus human judgments of answer faithfulness and completeness. Keep an unchanged benchmark when tuning retrieval.
+
+The current evaluator retrieves a larger candidate pool, collapses chunk rankings to unique documentation pages, and reports page-level precision/recall@k and MRR. This avoids counting repeated chunks from the same page as separate source hits.
 
 ### 11. Performance and repository readiness
 
 The defaults favor a 6 GB laptop GPU and reproducibility: embedding runs on CPU unless explicitly configured, vectors are batched, Chroma persists locally, and Ollama serves a small local model. `requirements.txt` now contains direct dependencies for each implemented layer. `.gitignore` excludes environments, secrets, model downloads, raw/processed corpora, and generated vector stores. `.env.example` contains non-secret defaults only. README documents commands, configuration, and evaluation.
 
-**ML engineer concepts:** profile before optimizing; measure embedding latency, retrieval latency, generation latency, memory use, and quality together. Increasing batch sizes or using GPU can improve speed but changes resource use. For a portfolio release, add robust retrieval labels, screenshots or a demo recording, a license review for redistributed source material, and a clean-install verification.
+**ML engineer concepts:** profile before optimizing; measure embedding latency, retrieval latency, generation latency, memory use, and quality together. Re-indexing now removes stale chunk IDs after upserting the current corpus, so removed chunks do not remain searchable. Increasing batch sizes or using GPU can improve speed but changes resource use. For a portfolio release, add robust retrieval labels, screenshots or a demo recording, a license review for redistributed source material, and a clean-install verification.
 
 ## Key files changed/added in this completion
 
@@ -144,4 +146,4 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/query `
 
 The existing workspace has the project source, 1,000-chunk corpus/index metadata, and an ignored `.venv` directory. In this execution environment, `.venv/pyvenv.cfg` points to `C:\Users\yadav\AppData\Local\Programs\Python\Python312\python.exe`, but that interpreter cannot be accessed here; invoking `.venv\Scripts\python.exe` reports that its configured base interpreter cannot be found. The Windows `python` and `py` commands do not resolve to a usable interpreter, and `ollama` is not available on PATH. I therefore could not run the newly added pytest suite, start FastAPI/Streamlit, download a model, or verify a live generated answer here. The report does not claim those runtime checks passed. Recreate the local virtual environment after Python 3.12 is available, then run the commands above; install/start Ollama separately and pull its model before testing answers.
 
-No GitHub push or publication was performed.
+The repository is published on GitHub. Future project work should be committed in separate, cohesive changes so each pipeline stage can be reviewed independently.

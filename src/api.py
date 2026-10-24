@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from functools import lru_cache
 from typing import Any
@@ -12,6 +13,9 @@ from pydantic import BaseModel, Field
 from src.answering import answer_question
 from src.ollama_client import OllamaError
 from src.retrieval import HybridRetriever
+
+
+logger = logging.getLogger(__name__)
 
 
 class QueryRequest(BaseModel):
@@ -55,8 +59,8 @@ def create_app(retriever: Any | None = None) -> FastAPI:
             raise HTTPException(status_code=422, detail="question must contain non-whitespace text")
         if request.top_k > request.candidate_k * 2:
             raise HTTPException(status_code=422, detail="top_k cannot exceed 2 * candidate_k")
-        active_retriever = app.state.retriever or get_retriever()
         try:
+            active_retriever = app.state.retriever or get_retriever()
             return answer_question(
                 question, active_retriever,
                 top_k=request.top_k, candidate_k=request.candidate_k,
@@ -69,7 +73,11 @@ def create_app(retriever: Any | None = None) -> FastAPI:
         except (ValueError, FileNotFoundError) as exc:
             raise HTTPException(status_code=503, detail=f"Retrieval is not ready: {exc}") from exc
         except Exception as exc:
-            raise HTTPException(status_code=500, detail=f"Query failed: {exc}") from exc
+            logger.exception("Unexpected failure while handling /api/query")
+            raise HTTPException(
+                status_code=500,
+                detail="The query could not be completed. Check the API logs for details.",
+            ) from exc
 
     return app
 
